@@ -1,0 +1,231 @@
+/* Reset & globals */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: "Segoe UI", Roboto, sans-serif;
+  background-color: #2f3136;
+  color: #dcddde;
+}
+
+/* Top-level container */
+.app-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main layout: sidebar + chat pane */
+.app-layout {
+  flex: 1;
+  display: flex;
+  height: 100%;
+}
+
+/* Sidebar (friends list) */
+.sidebar {
+  width: 260px;
+  background-color: #202225;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #23272a;
+}
+
+.sidebar h2 {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.add-friend {
+  display: flex;
+  margin-bottom: 1rem;
+}
+
+.add-friend input {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  background-color: #303338;
+  color: #dcddde;
+}
+
+.add-friend button {
+  padding: 0 1rem;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  background-color: #7289da;
+  color: #fff;
+  cursor: pointer;
+}
+
+.add-friend button:hover {
+  background-color: #5b6eae;
+}
+
+.sidebar ul {
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.friend-item {
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.friend-item:hover {
+  background-color: #2f3136;
+}
+
+.friend-item.active {
+  background-color: #393d42;
+}
+
+.friend-name {
+  flex: 1;
+}
+
+.friend-status {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  color: #faa61a;
+}
+
+/* Chat window */
+.chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  background-color: #36393f;
+}
+
+.chat-window h2 {
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  color: #fff;
+}
+
+/* Messages area */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.message {
+  max-width: 70%;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.message.mine {
+  background-color: #7289da;
+  color: #fff;
+  margin-left: auto;
+  border-bottom-right-radius: 2px;
+}
+
+.message.theirs {
+  background-color: #4f545c;
+  color: #dcddde;
+  margin-right: auto;
+  border-bottom-left-radius: 2px;
+}
+
+.message .ts {
+  display: block;
+  font-size: 0.7rem;
+  color: rgba(220,220,222,0.6);
+  margin-top: 0.25rem;
+  text-align: right;
+}
+
+/* Controls: input + send + call */
+.chat-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-controls input {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #40444b;
+  color: #dcddde;
+}
+
+.chat-controls input:focus {
+  outline: none;
+  background-color: #4f545c;
+}
+
+.chat-controls button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #7289da;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-controls button:hover {
+  background-color: #5b6eae;
+}
+
+/* Call button variants */
+.call-button {
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  background-color: #43b581;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.call-button:hover {
+  background-color: #3a9d6e;
+}
+
+.call-button.hangup {
+  background-color: #f04747;
+}
+
+.call-button.hangup:hover {
+  background-color: #cf3c3c;
+}
+
+/* Scrollbar styling (WebKit) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2f3136;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #202225;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #393d42;
+}
