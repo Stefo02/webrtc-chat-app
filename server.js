@@ -7,11 +7,10 @@ const path = require('path');
 const { Pool } = require('pg');
 const cors = require('cors');
 const socketIO = require('socket.io');
-
-// SSL Configuration
+const multer  = require('multer');
 const serverOptions = {
-  key: fs.readFileSync(path.join(__dirname, 'ssl', 'server.key')),
-  cert: fs.readFileSync(path.join(__dirname, 'ssl', 'server.crt')),
+  key: fs.readFileSync('./certs/localhost+2-key.pem'),
+  cert: fs.readFileSync('./certs/localhost+2.pem'),
 };
 
 // Express app
@@ -39,6 +38,12 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production'
 });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
+  filename:  (req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`)
+});
+const upload = multer({ storage });
 
 // --- REST API Routes ---
 
@@ -71,16 +76,49 @@ app.post('/api/friends', async (req, res) => {
 });
 
 // Fetch chat history
+// NEW: history with attachments
 app.get('/api/messages/:userA/:userB', async (req, res) => {
-  const { userA, userB } = req.params;
-  const { rows } = await pool.query(`
-    SELECT sender_id, receiver_id, content, created_at
-    FROM messages
-    WHERE (sender_id=$1 AND receiver_id=$2)
-       OR (sender_id=$2 AND receiver_id=$1)
-    ORDER BY created_at
-  `, [userA, userB]);
-  res.json(rows);
+  try {
+    const userA = parseInt(req.params.userA, 10);
+    const userB = parseInt(req.params.userB, 10);
+
+    const sql = `
+      SELECT
+        m.id,
+        m.sender_id,
+        m.receiver_id,
+        m.content,
+        m.created_at,
+        a.file_name,
+        a.file_type,
+        a.file_url
+      FROM messages AS m
+      LEFT JOIN attachments AS a
+        ON a.message_id = m.id
+      WHERE
+        (m.sender_id = $1 AND m.receiver_id = $2)
+        OR (m.sender_id = $2 AND m.receiver_id = $1)
+      ORDER BY m.created_at;
+    `;
+
+    const result = await pool.query(sql, [userA, userB]);
+    const messages = result.rows.map(r => ({
+      id:          r.id,
+      sender_id:   r.sender_id,
+      receiver_id: r.receiver_id,
+      created_at:  r.created_at,
+      type:        r.file_url ? 'file' : 'text',
+      content:     r.content,     // will be '' for file-only messages
+      fileName:    r.file_name,   // null for text
+      fileType:    r.file_type,   // null for text
+      fileUrl:     r.file_url     // null for text
+    }));
+
+    res.json(messages);
+  } catch (err) {
+    console.error('Error loading chat history:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Send a message
@@ -116,6 +154,65 @@ app.post('/api/users', async (req, res) => {
     [username, email, passwordHash]
   );
   res.status(201).json(rows[0]);
+});
+
+// serve the uploads folder statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// POST /api/upload-and-send
+app.post('/api/upload-and-send', upload.single('file'), async (req, res) => {
+  const { senderId, receiverId } = req.body;               // pass these in your form or JSON
+  const { filename, originalname, mimetype } = req.file;
+  const fileUrl = `/uploads/${filename}`;
+
+  // 1) Insert the message row (content left blank for attachments-only)
+  const msgResult = await pool.query(
+    `INSERT INTO messages (sender_id, receiver_id, content)
+     VALUES ($1,$2,'')
+     RETURNING id, created_at`,
+    [senderId, receiverId]
+  );
+  const messageId = msgResult.rows[0].id;
+  const createdAt = msgResult.rows[0].created_at;
+
+  // 2) Insert the attachment row
+  await pool.query(
+    `INSERT INTO attachments (message_id, file_name, file_type, file_url)
+     VALUES ($1,$2,$3,$4)`,
+    [messageId, originalname, mimetype, fileUrl]
+  );
+
+  // 3) Emit over socket.io to each party separately
+const payload = {
+  id:         messageId,
+  senderId,
+  receiverId,
+  created_at: createdAt,
+  type:       'file',
+  fileName:   originalname,
+  fileType:   mimetype,
+  fileUrl
+};
+
+// Emit to the receiver
+io.to(`user_${receiverId}`).emit('new-message', payload);
+
+// Emit to the sender
+io.to(`user_${senderId}`).emit('new-message', payload);
+
+  // 4) Respond to the HTTP client
+  res.json({
+    message: {
+      id:          messageId,
+      sender_id:   senderId,
+      receiver_id: receiverId,
+      created_at:  createdAt,
+      type:        'file',
+      fileName:    originalname,
+      fileType:    mimetype,
+      fileUrl
+    }
+  });
 });
 
 // --- WebSocket Logic ---
@@ -158,7 +255,7 @@ io.on('connection', socket => {
 
   socket.on('disconnect', () => {
     console.log(`User ${socket.userId} disconnected`);
-    
+
     for (const roomId in rooms) {
       const index = rooms[roomId].indexOf(socket.id);
       if (index !== -1) {

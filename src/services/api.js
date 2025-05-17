@@ -2,7 +2,6 @@
 import axios from 'axios';
 
 // 1) Create a shared Axios instance
-//    Reads REACT_APP_API_URL from your .env (e.g. "http://localhost:4000")
 const api = axios.create({
   baseURL: '/api',
   headers: {

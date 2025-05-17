@@ -130,7 +130,7 @@ html, body, #root {
   margin-bottom: 0.5rem;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
-  position: relative;
+  position: relative; /* Required for message-actions positioning */
   word-wrap: break-word;
 }
 
@@ -154,6 +154,29 @@ html, body, #root {
   color: rgba(220,220,222,0.6);
   margin-top: 0.25rem;
   text-align: right;
+}
+
+/* Message actions (edit, delete buttons) */
+.message-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+/* Edit container input field */
+.edit-container input {
+  width: calc(100% - 80px); /* Adjust width as needed */
+}
+
+/* Hover effect for messages */
+.message.mine:hover,
+.message.theirs:hover {
+  background: rgba(0,0,0,0.03);
 }
 
 /* Controls: input + send + call */
@@ -228,4 +251,33 @@ html, body, #root {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #393d42;
+}
+
+/* Media Preview Overlay */
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.preview-media {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+}
+
+.preview-download-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.5rem;
+  color: white;
+  text-decoration: none;
 }
