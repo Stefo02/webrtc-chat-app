@@ -132,6 +132,7 @@ html, body, #root {
   border-radius: 8px;
   position: relative; /* Required for message-actions positioning */
   word-wrap: break-word;
+  transition: background 0.2s;
 }
 
 .message.mine {
@@ -148,6 +149,44 @@ html, body, #root {
   border-bottom-left-radius: 2px;
 }
 
+.menu-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.menu-toggle:hover {
+  opacity: 1;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 24px;
+  right: 6px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.dropdown-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown-menu button:hover {
+  background-color: #f5f5f5;
+}
+
 .message .ts {
   display: block;
   font-size: 0.7rem;
@@ -157,15 +196,21 @@ html, body, #root {
 }
 
 /* Message actions (edit, delete buttons) */
+
 .message-actions {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  display: flex;
-  gap: 4px;
-  background: rgba(255,255,255,0.9);
+  margin-top: 5px;
+}
+.message-actions {
+  margin-right: 5px;
+  background-color: #ddd;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
   border-radius: 4px;
-  padding: 2px;
+}
+
+.message-actions button:hover {
+  background-color: #bbb;
 }
 
 /* Edit container input field */

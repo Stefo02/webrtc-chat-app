@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getChatHistory, sendMessage } from '../services/api';
+import { sendMessage, getChatHistory, editMessage, deleteMessage } from '../services/api';
 import io from 'socket.io-client';
 import CallButton from './CallButton';
 import useWebRTC from '../hooks/useWebRTC';
+import { FiMoreVertical } from 'react-icons/fi';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 
 export default function ChatWindow({ myUserId, selectedFriend}) {
   const [messages, setMessages] = useState([]);
@@ -14,6 +18,11 @@ export default function ChatWindow({ myUserId, selectedFriend}) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
   const [hoveredMsgId, setHoveredMsgId] = useState(null);
+  const [showMenuId, setShowMenuId] = useState(null);
+
+  const toggleMenu = (msgId) => {
+  setShowMenuId((prev) => (prev === msgId ? null : msgId));
+};
   
   // Initialize WebRTC with a callback for remote stream
   const { startCall, endCall, isCalling } = useWebRTC(myUserId, (remoteStream) => {
@@ -83,6 +92,20 @@ useEffect(() => {
     }
   });
 
+  socket.on('message-deleted', ({ id }) => {
+  setMessages(prev => prev.filter(m => m.id !== id));
+});
+
+  socket.on('message-updated', ({ id, content, edited_at }) => {
+  setMessages(prev =>
+    prev.map(m =>
+      m.id === id
+        ? { ...m, content, edited: true, edited_at }
+        : m
+    )
+  );
+});
+
   return () => {
     socket.disconnect();
   };
@@ -94,16 +117,7 @@ useEffect(() => {
     const content = input.trim();
     setInput('');
     try {
-      const saved = await sendMessage(myUserId, selectedFriend.id, content);
-      setMessages(prev => [
-        ...prev,
-        {
-          sender_id: myUserId,
-          receiver_id: selectedFriend.id,
-          content,
-          created_at: saved.created_at,
-        },
-      ]);
+      await sendMessage(myUserId, selectedFriend.id, content);
     } catch (err) {
       console.error('Send failed:', err);
     }
@@ -141,6 +155,22 @@ const handleFileChange = async e => {
   } finally {
     setUploading(false);
   }
+};
+
+const handleDelete = async (id) => {
+  try {
+    await deleteMessage(id);
+  } catch(err) {
+    console.error('Delete failed', err);
+  }
+};
+
+const handleEdit = (msg) => {
+  const newContent = prompt('Edit your message:', msg.content);
+  if (!newContent || newContent === msg.content) return;
+  editMessage(msg.id, newContent).catch(err => {
+    console.error('Edit failed', err);
+  });
 };
 
   if (!selectedFriend) {
@@ -194,6 +224,22 @@ const handleFileChange = async e => {
             onMouseEnter={() => setHoveredMsgId(msg.id)}
             onMouseLeave={() => setHoveredMsgId(null)}
           >
+
+    {/* 3-dot icon */}
+    {msg.sender_id === myUserId && hoveredMsgId === msg.id && (
+      <div className="menu-toggle" onClick={() => toggleMenu(msg.id)}>
+        <FiMoreVertical size={18} />
+      </div>
+    )}
+
+    {/* Dropdown menu */}
+    {msg.sender_id === myUserId && showMenuId === msg.id && (
+      <div className="dropdown-menu">
+        <button onClick={() => handleEdit(msg)}>✏️ Edit</button>
+        <button onClick={() => handleDelete(msg.id)}>🗑️ Delete</button>
+      </div>
+    )}
+
             {msg.type === 'file' ? (
               msg.fileType.startsWith('image/') ? (
                 <img
@@ -214,7 +260,21 @@ const handleFileChange = async e => {
                 </a>
               )
             ) : (
-              <div className="message-text">{msg.content}</div>
+              <div className="message-text">{msg.content}
+              {msg.edited && (
+                <span
+                  style={{
+                  fontSize: '0.75rem',
+                  color: 'gray',
+                  marginLeft: '6px',
+                  cursor: 'help'
+                }}
+                  title={dayjs(msg.edited_at).format('YYYY-MM-DD HH:mm')}
+                  >
+                  (edited {dayjs(msg.edited_at).fromNow()})
+                </span>
+              )}
+              </div>
             )}
 
             {/* TIMESTAMP: full date + time */}

@@ -23,12 +23,10 @@ export const addFriend = async (userId, friendUsername) => {
 // 3) Message-related endpoints
 export const getChatHistory = async (userA, userB) => {
   const res = await api.get(`/messages/${userA}/${userB}`);
-  return res.data;  
-  /* [
-     { sender_id, receiver_id, content, created_at },
-     …
-   ]
-  */
+  return res.data.map(msg => ({
+    ...msg,
+    edited: msg.edited, // make sure this field is preserved
+  }));
 };
 
 export const sendMessage = async (senderId, receiverId, content) => {
@@ -49,6 +47,15 @@ export const getUsers = async () => {
 export const createUser = async (username, email, passwordHash) => {
   const res = await api.post('/users', { username, email, passwordHash });
   return res.data;  // { id, username }
+};
+
+export const deleteMessage = async (messageId) => {
+  await api.delete(`/messages/${messageId}`);
+};
+
+export const editMessage = async (messageId, newContent) => {
+  const res = await api.put(`/messages/${messageId}`, { newContent });
+  return res.data;
 };
 
 export default api;

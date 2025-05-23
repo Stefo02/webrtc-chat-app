@@ -76,7 +76,6 @@ app.post('/api/friends', async (req, res) => {
 });
 
 // Fetch chat history
-// NEW: history with attachments
 app.get('/api/messages/:userA/:userB', async (req, res) => {
   try {
     const userA = parseInt(req.params.userA, 10);
@@ -89,6 +88,8 @@ app.get('/api/messages/:userA/:userB', async (req, res) => {
         m.receiver_id,
         m.content,
         m.created_at,
+        m.edited,
+        m.edited_at,
         a.file_name,
         a.file_type,
         a.file_url
@@ -107,6 +108,8 @@ app.get('/api/messages/:userA/:userB', async (req, res) => {
       sender_id:   r.sender_id,
       receiver_id: r.receiver_id,
       created_at:  r.created_at,
+      edited:      r.edited,
+      edited_at:   r.edited_at,
       type:        r.file_url ? 'file' : 'text',
       content:     r.content,     // will be '' for file-only messages
       fileName:    r.file_name,   // null for text
@@ -123,18 +126,35 @@ app.get('/api/messages/:userA/:userB', async (req, res) => {
 
 // Send a message
 app.post('/api/messages', async (req, res) => {
-  const { senderId, receiverId, content } = req.body;
-  const { rows } = await pool.query(`
-    INSERT INTO messages(sender_id, receiver_id, content)
-    VALUES ($1,$2,$3)
-    RETURNING id, created_at
-  `, [senderId, receiverId, content]);
+  try {
+    const { senderId, receiverId, content } = req.body;
 
-  io.to(`user_${receiverId}`).emit('new-message', {
-    senderId, receiverId, content, created_at: rows[0].created_at
-  });
+    if (!senderId || !receiverId || !content) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
 
-  res.status(201).json(rows[0]);
+    const { rows } = await pool.query(`
+      INSERT INTO messages(sender_id, receiver_id, content)
+      VALUES ($1,$2,$3)
+      RETURNING id, created_at
+    `, [senderId, receiverId, content]);
+
+    const payload = {
+      id: rows[0].id,
+      senderId,
+      receiverId,
+      content,
+      created_at: rows[0].created_at
+    };
+
+    io.to(`user_${receiverId}`).emit('new-message', payload);
+    io.to(`user_${senderId}`).emit('new-message', payload);
+
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 // List all users
@@ -213,6 +233,61 @@ io.to(`user_${senderId}`).emit('new-message', payload);
       fileUrl
     }
   });
+});
+
+// Delete a message
+app.delete('/api/messages/:id', async (req, res) => {
+  const messageId = req.params.id;
+
+  // ✅ Validate message ID
+  if (!messageId || isNaN(parseInt(messageId))) {
+    return res.status(400).json({ error: 'Invalid message ID' });
+  }
+
+  const { rowCount } = await pool.query(
+    `DELETE FROM messages WHERE id = $1`,
+    [messageId]
+  );
+
+  if (rowCount === 0) {
+    return res.status(404).json({ error: 'Message not found' });
+  }
+
+  io.emit('message-deleted', { id: parseInt(messageId, 10) });
+
+  res.sendStatus(204);
+});
+
+// Edit a message
+app.put('/api/messages/:id', async (req, res) => {
+  const messageId = req.params.id;
+  const { newContent } = req.body;
+
+  // ✅ Validate message ID
+  if (!messageId || isNaN(parseInt(messageId))) {
+    return res.status(400).json({ error: 'Invalid message ID' });
+  }
+
+  const result = await pool.query(
+    `UPDATE messages
+     SET content = $1, edited = TRUE, edited_at = NOW()
+     WHERE id = $2
+     RETURNING id, content, edited, edited_at`,
+    [newContent, messageId]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ error: 'Message not found' });
+  }
+
+  io.emit('message-updated', {
+    id: result.rows[0].id,
+    content: result.rows[0].content,
+    edited: result.rows[0].edited,
+    edited_at: result.rows[0].edited_at
+  });
+
+  res.json(result.rows[0]);
 });
 
 // --- WebSocket Logic ---
